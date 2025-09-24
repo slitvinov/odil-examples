@@ -11,9 +11,8 @@ uc : (u[0, 0] + u[0, 1] + u[1, 0] + u[1, 1]) / 4$
 
 u_t : (utp - utm) / dt$
 u_x : (uxp - uxm) / dx$
-fp : A0 * u_x$
 fu : u_t + kr * uc$
-vars: sort(listofvars([fp, fu]))$
+vars: sort(listofvars([fu]))$
 vars: sublist(vars, lambda([x], x # arraymake('kp, [j])))$
 
 S: [ (dt*kr+2)/(4*dt) = c0, (dt*kr-2)/(4*dt) = c1, A0/(2*dx) = c2, kp[j]/(2*dt) = c3, 1/(2*dx*rho) = c4]$
@@ -22,7 +21,7 @@ for s in S do block([],
   [val, key] : args(s),
   printf(true, "~a = ~a~%", key, val))$
 
-for f in [fu, fp] do block([L, A, key, val, i, j, fi],
+for f in [fu] do block([L, A, key, val, i, j, fi],
   L: coefmatrix([f], vars)[1],
   A: subst(S, L),
   for pair in riffle([vars, A]) do (
