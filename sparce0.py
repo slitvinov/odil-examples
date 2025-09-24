@@ -10,24 +10,6 @@ def cappend(i, j, d):
     data.append(d)
 
 
-def res(x):
-    return A @ x - rhs
-
-
-def fun(x):
-    r = res(x)
-    return 0.5 * (r @ r)
-
-
-def jac(x):
-    r = res(x)
-    return A.T @ r
-
-
-def hessp(x, v):
-    return A.T @ (A @ v)
-
-
 row = []
 col = []
 rhs = []
@@ -59,12 +41,8 @@ for i in range(1, nt):
             cappend(i - 1, j, c2)
             rhs.append(0.0)
 A = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
-x0 = np.zeros(A.shape[1])
-res = scipy.optimize.minimize(fun,
-                              x0,
-                              jac=jac,
-                              hessp=hessp,
-                              method="Newton-CG")
-u = np.asarray(res.x).reshape(nt, nx)
+sol = scipy.sparse.linalg.spsolve(A, rhs)
+u = np.asarray(sol).reshape(nt, nx)
 for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
     plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
+plt.show()

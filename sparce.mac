@@ -1,32 +1,23 @@
-declare([D, a, dt, dx, rho], constant)$
+declare([alpha, dt, dx], constant)$
 riffle(x):=block([mat:transpose(apply(matrix,x)),out:[]],
              for i thru first(matrix_size(mat)) do push(args(mat[i]),out),
              reverse(out))$
-declare([A0, dt, dx, kp, kr], constant)$
-utm : (u[0, 0] + u[0, 1]) / 2$
-utp : (u[1, 0] + u[1, 1]) / 2$
-uxm : (u[0, 0] + u[1, 0]) / 2$
-uxp : (u[0, 1] + u[1, 1]) / 2$
-uc : (u[0, 0] + u[0, 1] + u[1, 0] + u[1, 1]) / 4$
+ut : (u[1, 0] - u[0, 0]) / dt $
+ux : (u[0, -1] - 2 * u[0, 0] + u[0, 1]) / (2 * dx^2 ) $
 
-u_t : (utp - utm) / dt$
-u_x : (uxp - uxm) / dx$
-fu : u_t + kr * uc$
+fu : ut - alpha * ux $
 vars: sort(listofvars([fu]))$
-vars: sublist(vars, lambda([x], x # arraymake('kp, [j])))$
-
-S: [ (dt*kr+2)/(4*dt) = c0, (dt*kr-2)/(4*dt) = c1, A0/(2*dx) = c2, kp[j]/(2*dt) = c3, 1/(2*dx*rho) = c4]$
+S: [ -alpha/(2*dx^2) = c0, -((dx^2-alpha*dt)/(dt*dx^2)) = c1, 1/dt = c2 ];
 
 for s in S do block([],
   [val, key] : args(s),
   printf(true, "~a = ~a~%", key, val))$
 
-for f in [fu] do block([L, A, key, val, i, j, fi],
+for f in [fu] do block([L, A, key, val, i, j],
   L: coefmatrix([f], vars)[1],
   A: subst(S, L),
   for pair in riffle([vars, A]) do (
     [key, val]: pair,
     [i, j]: args(key),
-    fi: op(key),
-    printf(true, "cappend(~s, ~a, ~a, ~a)~%", fi, 'i - 1 + i, 'j - 1 + j, val)),
+    printf(true, "cappend(~a, ~a, ~a)~%", 'i + i, 'j + j, val)),
   printf(true, "~a~%", "rhs.append(0)"))$
