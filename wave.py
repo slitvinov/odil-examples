@@ -10,10 +10,6 @@ def cappend(i, j, d):
     data.append(d)
 
 
-row = []
-col = []
-rhs = []
-data = []
 nx = 50
 nt = 50
 L = 1.0
@@ -25,6 +21,7 @@ c0 = -1 / (2 * dx**2)
 c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
+row = []; col = []; rhs = []; data = []
 for i in range(nt):
     for j in range(nx):
         if i == 0:

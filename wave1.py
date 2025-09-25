@@ -10,31 +10,29 @@ def cappend(i, j, d):
     data.append(d)
 
 
-row = []
-col = []
-rhs = []
-data = []
 nx = 50
 nt = 50
 L = 1.0
 T = 1.0
 sigma = 0.2
 dx = 2 * L / (nx - 1)
-dt = T / (nt - 1)
+dt = T / nt
 c0 = -1 / (2 * dx**2)
 c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
-for j in range(nx):
-    cappend(0, j, 1)
-    rhs.append(math.exp(-(x[j] / sigma)**2))
-for j in range(nx):
-    cappend(nt - 1, j, 1)
-    rhs.append(0)
-for i in range(1, nt - 1):
+
+row = []; col = []; rhs = []; data = []
+for i in range(nt):
     for j in range(nx):
-        if j == 0 or j == nx - 1:
-            cappend(i, j, 1)
+        if i == 0:
+            cappend(0, j, 0)
+            rhs.append(0)
+        elif i == nt - 1:
+            cappend(nt - 1, j, 0)
+            rhs.append(0)
+        elif j == 0 or j == nx - 1:
+            cappend(i, j, 0)
             rhs.append(0)
         else:
             cappend(i - 1, j, c1)
@@ -43,8 +41,28 @@ for i in range(1, nt - 1):
             cappend(i, j + 1, c0)
             cappend(i + 1, j, c1)
             rhs.append(0)
-A = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
-sol = scipy.sparse.linalg.spsolve(A, rhs)
+dF = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
+f = np.copy(rhs)
+
+row = []; col = []; rhs = []; data = []
+for i in range(nt):
+    for j in range(nx):
+        if i == 0:
+            cappend(0, j, 1)
+            rhs.append(math.exp(-(x[j] / sigma)**2))
+        elif i == nt - 1:
+            cappend(nt - 1, j, 1)
+            rhs.append(0)
+        elif j == 0 or j == nx - 1:
+            cappend(i, j, 1)
+            rhs.append(0)
+        else:
+            cappend(i, j, 0)
+            rhs.append(0)
+dG = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
+g = np.copy(rhs)
+
+sol = scipy.sparse.linalg.spsolve(dF + dG, g + f)
 u = np.asarray(sol).reshape(nt, nx)
 for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
     plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
