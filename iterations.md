@@ -1,0 +1,102 @@
+---
+jupytext:
+  formats: ipynb,md:myst
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.17.2
+kernelspec:
+  display_name: Python 3
+  name: python3
+---
+
+[![Open in
+Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/slitvinov/odil-examples/blob/main/iterations.ipynb)
+
+```{code-cell}
+import scipy
+import matplotlib.pyplot as plt
+import math
+import numpy as np
+
+
+def cappend(i, j, d):
+    row.append(len(rhs))
+    col.append(i * nx + j)
+    data.append(d)
+
+
+nx = 50
+nt = 50
+L = 1.0
+T = 1.0
+sigma = 0.2
+dx = 2 * L / (nx - 1)
+dt = T / nt
+c0 = -1 / (2 * dx**2)
+c1 = 1 / (2 * dt**2)
+c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
+x = np.linspace(-L, L, nx)
+
+row = []
+col = []
+rhs = []
+data = []
+for i in range(nt):
+    for j in range(nx):
+        if i == 0:
+            cappend(0, j, 0)
+            rhs.append(0)
+        elif i == nt - 1:
+            cappend(nt - 1, j, 0)
+            rhs.append(0)
+        elif j == 0 or j == nx - 1:
+            cappend(i, j, 0)
+            rhs.append(0)
+        else:
+            cappend(i - 1, j, c1)
+            cappend(i, j - 1, c0)
+            cappend(i, j, c2)
+            cappend(i, j + 1, c0)
+            cappend(i + 1, j, c1)
+            rhs.append(0)
+dF = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
+f = np.copy(rhs)
+
+row = []
+col = []
+rhs = []
+data = []
+for i in range(nt):
+    for j in range(nx):
+        if i == 0:
+            cappend(0, j, 1)
+            rhs.append(math.exp(-(x[j] / sigma)**2))
+        elif i == nt - 1:
+            cappend(nt - 1, j, 1)
+            rhs.append(0)
+        elif j == 0 or j == nx - 1:
+            cappend(i, j, 1)
+            rhs.append(0)
+        else:
+            cappend(i, j, 0)
+            rhs.append(0)
+dG = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
+g = np.copy(rhs)
+
+us = np.zeros(nt * nx)
+for i in range(5):
+    Fs = dF @ us + f
+    Gs = dG @ us + g
+    M = dF.T @ dF + dG.T @ dG
+    rhs = -M @ us + dF.T @ Fs + dG.T @ Gs
+    usp = scipy.sparse.linalg.spsolve(M, rhs)
+    print(f"diff: {np.mean((usp - us)**2):8.4e}")
+    us = usp
+u = np.asarray(us).reshape(nt, nx)
+for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
+    plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
+plt.legend()
+plt.show()
+```
