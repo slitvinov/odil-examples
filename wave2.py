@@ -62,10 +62,16 @@ for i in range(nt):
 dG = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
 g = np.copy(rhs)
 
-x0 = np.zeros(nt * nx)
-
-sol = scipy.sparse.linalg.spsolve(dF + dG, g + f - x0)
-u = np.asarray(sol).reshape(nt, nx)
+us = np.zeros(nt * nx)
+for i in range(10):
+    Fs = dF * us + f
+    Gs = dG * us + g
+    M = dF.T @ dF + dG.T @ dG
+    rhs = - M @ us + (dF.T @ Fs + dG.T @ Gs)
+    usp = scipy.sparse.linalg.spsolve(M, rhs)
+    print(f"{np.mean(usp - us):.2e}")
+    us = usp
+u = np.asarray(usp).reshape(nt, nx)
 for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
     plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
 plt.legend()
