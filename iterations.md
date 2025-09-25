@@ -174,12 +174,12 @@ rhs = []
 data = []
 for i in range(1, nt - 1):
     for j in range(1, nx - 1):
-        cappend(i - 1, j, c1)
-        cappend(i, j - 1, c0)
-        cappend(i, j, c2)
-        cappend(i, j + 1, c0)
-        cappend(i + 1, j, c1)
-        rhs.append(0)
+	cappend(i - 1, j, c1)
+	cappend(i, j - 1, c0)
+	cappend(i, j, c2)
+	cappend(i, j + 1, c0)
+	cappend(i + 1, j, c1)
+	rhs.append(0)
 dF = scipy.sparse.csr_matrix((data, (row, col)), shape=(len(rhs), nt * nx), dtype=float)
 f = np.array(rhs, dtype=float)
 
@@ -190,18 +190,19 @@ rhs = []
 data = []
 for i in range(nt):
     for j in range(nx):
-        if i == 0:
-            # Initial condition
-            cappend(i, j, 1)
-            rhs.append(math.exp(-(x[j] / sigma)**2))
-        elif i == nt - 1:
-            # Terminal condition
-            cappend(i, j, 1)
-            rhs.append(0)
-        elif j == 0 or j == nx - 1:
-            # Boundary conditions
-            cappend(i, j, 1)
-            rhs.append(0)
+	if i == 0:
+	    # Initial condition
+	    cappend(i, j, 1)
+	    rhs.append(math.exp(-(x[j] / sigma)**2) *
+		       math.cos(math.pi * x[j] / L))
+	elif i == nt - 1:
+	    # Terminal condition
+	    cappend(i, j, 1)
+	    rhs.append(0)
+	elif j == 0 or j == nx - 1:
+	    # Boundary conditions
+	    cappend(i, j, 1)
+	    rhs.append(0)
 dG = scipy.sparse.csr_matrix((data, (row, col)), shape=(len(rhs), nt * nx), dtype=float)
 g = np.array(rhs, dtype=float)
 
