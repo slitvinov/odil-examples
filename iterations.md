@@ -7,7 +7,8 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.17.3
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
+  language: python
   name: python3
 ---
 
@@ -145,7 +146,7 @@ M u_{new} = dF^T f + dG^T g
 $
 if `u_old` is zero. The code uses a slightly different formulation for the right hand side `rhs = -M @ us + dF.T @ Fs + dG.T @ Gs` which is equivalent to `rhs = dF.T @ f + dG.T @ g` when `us` is the solution of the previous iteration.
 
-```{code-cell}
+```{code-cell} ipython3
 ---
 colab:
   base_uri: https://localhost:8080/
@@ -217,15 +218,15 @@ g = np.array(rhs, dtype=float)
 
 us = np.zeros(nt * nx)
 for i in range(5):
-    Fs = dF @ us + f
-    Gs = dG @ us + g
+    Fs = dF @ us - f
+    Gs = dG @ us - g
     M = dF.T @ dF + dG.T @ dG
-    rhs = -M @ us + dF.T @ Fs + dG.T @ Gs
+    rhs = M @ us - dF.T @ Fs - dG.T @ Gs
     usp = scipy.sparse.linalg.spsolve(M, rhs)
     print(f"diff: {np.mean((usp - us)**2):8.4e}")
     us = usp
 u = np.asarray(us).reshape(nt, nx)
 for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
     plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
-plt.legend()
+plt.legend();
 ```
