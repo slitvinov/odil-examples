@@ -25,15 +25,15 @@ c0 = -1 / (2 * dx**2)
 c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
-for j in range(nx):
-    cappend(0, j, 1)
-    rhs.append(math.exp(-(x[j] / sigma)**2))
-for j in range(nx):
-    cappend(nt - 1, j, 1)
-    rhs.append(0)
-for i in range(1, nt - 1):
+for i in range(nt):
     for j in range(nx):
-        if j == 0 or j == nx - 1:
+        if i == 0:
+            cappend(0, j, 1)
+            rhs.append(math.exp(-(x[j] / sigma)**2))
+        elif i == nt - 1:
+            cappend(nt - 1, j, 1)
+            rhs.append(0)
+        elif j == 0 or j == nx - 1:
             cappend(i, j, 1)
             rhs.append(0)
         else:
