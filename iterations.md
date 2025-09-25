@@ -109,27 +109,41 @@ Both are stored in **CSR sparse format**.
 
 ## 4. Least-squares formulation
 
-We want to minimize:
+We formulate the problem as a minimization of a loss function, which is a sum of squared residuals for the PDE and the boundary/initial conditions. This is a common approach in the ODIL (Operator Discretization and Inference Library) framework.
 
-$$
-\min_u \; \|dF u + f\|_2^2 + \|dG u + g\|_2^2
-$$
+The loss function is:
+$
+L(u) = \|F[u]\|_2^2 + \|G[u]\|_2^2
+$
 
-where $$u$$ is the vector of all unknowns $$u_{i,j}$$ flattened into size $$nt \times nx$$.
+For a linear problem like the wave equation, the discrete operators `F[u]` and `G[u]` can be written in the form `dF * u - f` and `dG * u - g` respectively.
 
-This is solved using the **normal equations**:
+So we want to minimize:
+$
+\min_u \; \|dF u - f\|_2^2 + \|dG u - g\|_2^2
+$
 
-$$
-M u = dF^T f + dG^T g - M u_{\text{old}}
-$$
+where:
+- `u` is the vector of all unknown values `u_{i,j}` at each grid point, flattened into a single vector of size `nt * nx`.
+- `dF` is the sparse matrix representing the discretized wave operator and the zero boundary/terminal conditions.
+- `f` is a vector of zeros, as the PDE and boundary/terminal conditions are homogeneous (equal to zero).
+- `dG` is a sparse matrix that selects the values of `u` at `t=0`.
+- `g` is a vector containing the target values for the initial condition. It has `exp(-x_j^2/sigma^2)` for `t=0` and zeros elsewhere. The expression `dG * u - g` is constructed such that for `t=0` it becomes `u(0, x_j) - exp(-x_j^2/sigma^2)`, and we are minimizing the square of this difference.
 
-with
+This is a standard linear least-squares problem. The solution is found by solving the **normal equations**:
+$
+(dF^T dF + dG^T dG) u = dF^T f + dG^T g
+$
 
-$$
-M = dF^T dF + dG^T dG
-$$
-
-The code iterates a few times, but since the system is linear, **one solve is enough**.
+The code implements an iterative solver for this system. The matrix `M = dF^T dF + dG^T dG` is the Hessian of the loss function. The right-hand side is the negative gradient of the loss at `u=0`. The code performs several iterations, but since the problem is linear, a single step is sufficient to find the exact solution. The iterative updates are computed as:
+$
+M u_{new} = M u_{old} - (dF^T(dF u_{old} - f) + dG^T(dG u_{old} - g))
+$
+which simplifies to
+$
+M u_{new} = dF^T f + dG^T g
+$
+if `u_old` is zero. The code uses a slightly different formulation for the right hand side `rhs = -M @ us + dF.T @ Fs + dG.T @ Gs` which is equivalent to `rhs = dF.T @ f + dG.T @ g` when `us` is the solution of the previous iteration.
 
 ```{code-cell}
 ---
@@ -163,31 +177,23 @@ c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
 
+# dF for PDE at interior points
 row = []
 col = []
 rhs = []
 data = []
-for i in range(nt):
-    for j in range(nx):
-        if i == 0:
-            cappend(0, j, 0)
-            rhs.append(0)
-        elif i == nt - 1:
-            cappend(nt - 1, j, 0)
-            rhs.append(0)
-        elif j == 0 or j == nx - 1:
-            cappend(i, j, 0)
-            rhs.append(0)
-        else:
-            cappend(i - 1, j, c1)
-            cappend(i, j - 1, c0)
-            cappend(i, j, c2)
-            cappend(i, j + 1, c0)
-            cappend(i + 1, j, c1)
-            rhs.append(0)
-dF = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
-f = np.copy(rhs)
+for i in range(1, nt - 1):
+    for j in range(1, nx - 1):
+        cappend(i - 1, j, c1)
+        cappend(i, j - 1, c0)
+        cappend(i, j, c2)
+        cappend(i, j + 1, c0)
+        cappend(i + 1, j, c1)
+        rhs.append(0)
+dF = scipy.sparse.csr_matrix((data, (row, col)), shape=(len(rhs), nt * nx), dtype=float)
+f = np.array(rhs, dtype=float)
 
+# dG for initial, boundary and terminal conditions
 row = []
 col = []
 rhs = []
@@ -195,19 +201,19 @@ data = []
 for i in range(nt):
     for j in range(nx):
         if i == 0:
-            cappend(0, j, 1)
+            # Initial condition
+            cappend(i, j, 1)
             rhs.append(math.exp(-(x[j] / sigma)**2))
         elif i == nt - 1:
-            cappend(nt - 1, j, 1)
-            rhs.append(0)
-        elif j == 0 or j == nx - 1:
+            # Terminal condition
             cappend(i, j, 1)
             rhs.append(0)
-        else:
-            cappend(i, j, 0)
+        elif j == 0 or j == nx - 1:
+            # Boundary conditions
+            cappend(i, j, 1)
             rhs.append(0)
-dG = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
-g = np.copy(rhs)
+dG = scipy.sparse.csr_matrix((data, (row, col)), shape=(len(rhs), nt * nx), dtype=float)
+g = np.array(rhs, dtype=float)
 
 us = np.zeros(nt * nx)
 for i in range(5):
