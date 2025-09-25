@@ -94,7 +94,8 @@ for k = 1:nt
       q(perq) = Rq\(Rqt\rhs(perq));
       Q = zeros(nx+1,ny+1);
       Q(2:end-1,2:end-1) = reshape(q,nx-1,ny-1);
-      clf, contourf(avg(x),avg(y),P',20,'w-'), hold on
+      fig = figure('visible','off');
+      contourf(avg(x),avg(y),P',20,'w-'), hold on
       contour(x,y,Q',20,'k-');
       Ue = [uS' avg([uW;U;uE]')' uN'];
       Ve = [vW;avg([vS' V vN']);vE];
@@ -103,7 +104,9 @@ for k = 1:nt
       hold off, axis equal, axis([0 lx 0 ly])
       p = sort(p); caxis(p([8 end-7]))
       title(sprintf('Re = %0.1g   t = %0.2g',Re,k*dt))
-      drawnow
+      fname = sprintf('%05d.png', k);
+      print(fig, fname, '-dpng');
+      close(fig)
    end
 end
 fprintf('\n')
