@@ -1,0 +1,25 @@
+declare([alpha, dt, dx], constant)$
+riffle(x):=block([mat:transpose(apply(matrix,x)),out:[]],
+             for i thru first(matrix_size(mat)) do push(args(mat[i]),out),
+             reverse(out))$
+ut : (u[-1, 0] - 2 * u[0, 0] + u[1, 0]) / (2 * dt^2 ) $
+ux : (u[0, -1] - 2 * u[0, 0] + u[0, 1]) / (2 * dx^2 ) $
+
+fu : ut - alpha * ux $
+vars: sort(listofvars([fu]))$
+S: [ -alpha/(2*dx^2) = c0,
+     1/(2*dt^2) = c1,
+     -((dx^2-alpha*dt^2)/(dt^2*dx^2)) = c2 ];
+
+for s in S do block([],
+  [val, key] : args(s),
+  printf(true, "~a = ~a~%", key, val))$
+
+for f in [fu] do block([L, A, key, val, i, j],
+  L: coefmatrix([f], vars)[1],
+  A: subst(S, L),
+  for pair in riffle([vars, A]) do (
+    [key, val]: pair,
+    [i, j]: args(key),
+    printf(true, "cappend(~a, ~a, ~a)~%", 'i + i, 'j + j, val)),
+  printf(true, "~a~%", "rhs.append(0)"))$
