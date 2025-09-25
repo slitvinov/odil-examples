@@ -95,7 +95,7 @@ The code builds two sparse matrices, `dF` and `dG`, to represent the discrete op
 - **`dF` (PDE operator):** Encodes the 5-point stencil for the wave equation at all **interior** grid points.
 
 - **`dG` (Conditions operator):** Enforces all other conditions by creating identity rows that select the corresponding `u` values:
-  - **Initial condition ($t=0$):** enforces $u(0,x_j) = \exp(-x_j^2/\sigma^2)$.
+  - **Initial condition ($t=0$):** enforces $u(0,x_j)$.
   - **Boundary conditions ($x=\pm L$):** enforces $u(t, \pm L) = 0$.
   - **Terminal condition ($t=T$):** enforces $u(T, x_j) = 0$.
 
@@ -113,8 +113,8 @@ $$
 
 Here, $F[u]$ and $G[u]$ are discrete operators representing the residuals of the PDE and the associated conditions. For this linear problem, they take the form:
 
-- $F[u] = dF \cdot u - f$: The residual of the wave equation at interior points. `dF` is the sparse matrix for the PDE, and the right-hand-side vector `f` is zero.
-- $G[u] = dG \cdot u - g$: The residual for the initial, boundary, and terminal conditions. `dG` selects grid points on the domain boundary, and `g` contains the target values for these conditions.
+- $F[u] = dF \cdot u + f$: The residual of the wave equation at interior points. `dF` is the sparse matrix for the PDE, and the right-hand-side vector `f` is zero.
+- $G[u] = dG \cdot u + g$: The residual for the initial, boundary, and terminal conditions. `dG` selects grid points on the domain boundary, and `g` contains the target values for these conditions.
 
 The vector $u$ represents the solution at all grid points, flattened into a single vector. We seek the $u$ that minimizes $L(u)$. This is a linear least-squares problem, and its solution is found by solving the **normal equations**:
 
@@ -130,19 +130,12 @@ $$
 
 where:
 - $M = dF^T dF + dG^T dG$ is the Hessian matrix.
-- $F_s = dF \cdot u_{old} - f$ is the PDE residual at the current iteration (`Fs` in the code).
-- $G_s = dG \cdot u_{old} - g$ is the conditions residual at the current iteration (`Gs` in the code).
+- $F_s = dF \cdot u_{old} + f$ is the PDE residual at the current iteration (`Fs` in the code).
+- $G_s = dG \cdot u_{old} + g$ is the conditions residual at the current iteration (`Gs` in the code).
 
 The right-hand side of the update is the negative gradient of the loss function. Since our problem is linear, the solver converges to the exact solution in a single step (if starting from $u_{old}=0$).
 
-```{code-cell} ipython3
----
-colab:
-  base_uri: https://localhost:8080/
-  height: 518
-id: 6da60b8c
-outputId: b7d58b2d-fb82-4f36-b6cc-2226711db497
----
+```python3
 import scipy
 import matplotlib.pyplot as plt
 import math
@@ -167,49 +160,38 @@ c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
 
-# dF for PDE at interior points
-row = []
-col = []
-rhs = []
-data = []
+row = []; col = []; rhs = []; data = []
 for i in range(1, nt - 1):
     for j in range(1, nx - 1):
-	cappend(i - 1, j, c1)
-	cappend(i, j - 1, c0)
-	cappend(i, j, c2)
-	cappend(i, j + 1, c0)
-	cappend(i + 1, j, c1)
-	rhs.append(0)
+        cappend(i - 1, j, c1)
+        cappend(i, j - 1, c0)
+        cappend(i, j, c2)
+        cappend(i, j + 1, c0)
+        cappend(i + 1, j, c1)
+        rhs.append(0)
 dF = scipy.sparse.csr_matrix((data, (row, col)), shape=(len(rhs), nt * nx), dtype=float)
-f = np.array(rhs, dtype=float)
+f = -np.array(rhs, dtype=float)
 
-# dG for initial, boundary and terminal conditions
-row = []
-col = []
-rhs = []
-data = []
+row = []; col = []; rhs = []; data = []
 for i in range(nt):
     for j in range(nx):
-	if i == 0:
-	    # Initial condition
-	    cappend(i, j, 1)
-	    rhs.append(math.exp(-(x[j] / sigma)**2) *
+        if i == 0:
+            cappend(i, j, 1)
+            rhs.append(math.exp(-(x[j] / sigma)**2) *
 		       math.cos(math.pi * x[j] / L))
-	elif i == nt - 1:
-	    # Terminal condition
-	    cappend(i, j, 1)
-	    rhs.append(0)
-	elif j == 0 or j == nx - 1:
-	    # Boundary conditions
-	    cappend(i, j, 1)
-	    rhs.append(0)
+        elif i == nt - 1:
+            cappend(i, j, 1)
+            rhs.append(0)
+        elif j == 0 or j == nx - 1:
+            cappend(i, j, 1)
+            rhs.append(0)
 dG = scipy.sparse.csr_matrix((data, (row, col)), shape=(len(rhs), nt * nx), dtype=float)
-g = np.array(rhs, dtype=float)
+g = -np.array(rhs, dtype=float)
 
 us = np.zeros(nt * nx)
 for i in range(5):
-    Fs = dF @ us - f
-    Gs = dG @ us - g
+    Fs = dF @ us + f
+    Gs = dG @ us + g
     M = dF.T @ dF + dG.T @ dG
     rhs = M @ us - dF.T @ Fs - dG.T @ Gs
     usp = scipy.sparse.linalg.spsolve(M, rhs)
@@ -219,4 +201,12 @@ u = np.asarray(us).reshape(nt, nx)
 for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
     plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
 plt.legend();
+```
+
+```{code-cell} ipython3
+
+```
+
+```{code-cell} ipython3
+
 ```
