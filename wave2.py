@@ -22,7 +22,10 @@ c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
 
-row = []; col = []; rhs = []; data = []
+row = []
+col = []
+rhs = []
+data = []
 for i in range(nt):
     for j in range(nx):
         if i == 0:
@@ -44,7 +47,10 @@ for i in range(nt):
 dF = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
 f = np.copy(rhs)
 
-row = []; col = []; rhs = []; data = []
+row = []
+col = []
+rhs = []
+data = []
 for i in range(nt):
     for j in range(nx):
         if i == 0:
@@ -63,15 +69,15 @@ dG = scipy.sparse.csr_matrix((data, (row, col)), dtype=float)
 g = np.copy(rhs)
 
 us = np.zeros(nt * nx)
-for i in range(10):
-    Fs = dF * us + f
-    Gs = dG * us + g
+for i in range(5):
+    Fs = dF @ us + f
+    Gs = dG @ us + g
     M = dF.T @ dF + dG.T @ dG
-    rhs = - M @ us + (dF.T @ Fs + dG.T @ Gs)
+    rhs = -M @ us + dF.T @ Fs + dG.T @ Gs
     usp = scipy.sparse.linalg.spsolve(M, rhs)
-    print(f"{np.mean(usp - us):.2e}")
+    print(f"diff: {np.mean((usp - us)**2):8.4e}")
     us = usp
-u = np.asarray(usp).reshape(nt, nx)
+u = np.asarray(us).reshape(nt, nx)
 for k in 0, nt // 4, nt // 2, 3 * nt // 4, nt - 1:
     plt.plot(x, u[k, :], 'o-', label=f"t={k*dt:.2f}")
 plt.legend()

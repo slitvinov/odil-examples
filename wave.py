@@ -21,7 +21,10 @@ c0 = -1 / (2 * dx**2)
 c1 = 1 / (2 * dt**2)
 c2 = -((dx**2 - dt**2) / (dt**2 * dx**2))
 x = np.linspace(-L, L, nx)
-row = []; col = []; rhs = []; data = []
+row = []
+col = []
+rhs = []
+data = []
 for i in range(nt):
     for j in range(nx):
         if i == 0:
