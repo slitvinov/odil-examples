@@ -90,61 +90,50 @@ $$
 
 ## 3. Sparse matrix construction
 
-The code builds two sparse matrices:
+The code builds two sparse matrices, `dF` and `dG`, to represent the discrete operators for the PDE and the associated conditions.
 
-- **`dF` (PDE + boundary + terminal constraints):**  
-  - For interior nodes, encodes the wave stencil above.  
-  - For boundary/terminal nodes, enforces $$u=0$$ by inserting identity rows.
+- **`dF` (PDE operator):** Encodes the 5-point stencil for the wave equation at all **interior** grid points.
 
-- **`dG` (initial condition at \(t=0\)):**  
-  - At $$t=0$$, enforces
-    $$
-    u(0,x_j) = \exp\!\Big(-\frac{x_j^2}{\sigma^2}\Big)
-    $$
-    via identity rows.  
-  - Elsewhere, adds no extra constraint.
+- **`dG` (Conditions operator):** Enforces all other conditions by creating identity rows that select the corresponding `u` values:
+  - **Initial condition ($t=0$):** enforces $u(0,x_j) = \exp(-x_j^2/\sigma^2)$.
+  - **Boundary conditions ($x=\pm L$):** enforces $u(t, \pm L) = 0$.
+  - **Terminal condition ($t=T$):** enforces $u(T, x_j) = 0$.
 
-Both are stored in **CSR sparse format**.
+Both matrices are stored in the efficient **CSR (Compressed Sparse Row)** format.
 
 ---
 
 ## 4. Least-squares formulation
 
-We formulate the problem as a minimization of a loss function, which is a sum of squared residuals for the PDE and the boundary/initial conditions. This is a common approach in the ODIL (Operator Discretization and Inference Library) framework.
+Following the ODIL (Operator Discretization and Inference Library) framework, we formulate the problem as minimizing a loss function $L(u)$, which is the sum of squared residuals:
 
-The loss function is:
-$
+$$
 L(u) = \|F[u]\|_2^2 + \|G[u]\|_2^2
-$
+$$
 
-For a linear problem like the wave equation, the discrete operators `F[u]` and `G[u]` can be written in the form `dF * u - f` and `dG * u - g` respectively.
+Here, $F[u]$ and $G[u]$ are discrete operators representing the residuals of the PDE and the associated conditions. For this linear problem, they take the form:
 
-So we want to minimize:
-$
-\min_u \; \|dF u - f\|_2^2 + \|dG u - g\|_2^2
-$
+- $F[u] = dF \cdot u - f$: The residual of the wave equation at interior points. `dF` is the sparse matrix for the PDE, and the right-hand-side vector `f` is zero.
+- $G[u] = dG \cdot u - g$: The residual for the initial, boundary, and terminal conditions. `dG` selects grid points on the domain boundary, and `g` contains the target values for these conditions.
+
+The vector $u$ represents the solution at all grid points, flattened into a single vector. We seek the $u$ that minimizes $L(u)$. This is a linear least-squares problem, and its solution is found by solving the **normal equations**:
+
+$$
+(dF^T dF + dG^T dG) u = dF^T f + dG^T g
+$$
+
+The code implements a Newton-Raphson iterative solver. For a general (non-linear) problem, the update step is:
+
+$$
+M (u_{new} - u_{old}) = - (dF^T F_s + dG^T G_s)
+$$
 
 where:
-- `u` is the vector of all unknown values `u_{i,j}` at each grid point, flattened into a single vector of size `nt * nx`.
-- `dF` is the sparse matrix representing the discretized wave operator and the zero boundary/terminal conditions.
-- `f` is a vector of zeros, as the PDE and boundary/terminal conditions are homogeneous (equal to zero).
-- `dG` is a sparse matrix that selects the values of `u` at `t=0`.
-- `g` is a vector containing the target values for the initial condition. It has `exp(-x_j^2/sigma^2)` for `t=0` and zeros elsewhere. The expression `dG * u - g` is constructed such that for `t=0` it becomes `u(0, x_j) - exp(-x_j^2/sigma^2)`, and we are minimizing the square of this difference.
+- $M = dF^T dF + dG^T dG$ is the Hessian matrix.
+- $F_s = dF \cdot u_{old} - f$ is the PDE residual at the current iteration (`Fs` in the code).
+- $G_s = dG \cdot u_{old} - g$ is the conditions residual at the current iteration (`Gs` in the code).
 
-This is a standard linear least-squares problem. The solution is found by solving the **normal equations**:
-$
-(dF^T dF + dG^T dG) u = dF^T f + dG^T g
-$
-
-The code implements an iterative solver for this system. The matrix `M = dF^T dF + dG^T dG` is the Hessian of the loss function. The right-hand side is the negative gradient of the loss at `u=0`. The code performs several iterations, but since the problem is linear, a single step is sufficient to find the exact solution. The iterative updates are computed as:
-$
-M u_{new} = M u_{old} - (dF^T(dF u_{old} - f) + dG^T(dG u_{old} - g))
-$
-which simplifies to
-$
-M u_{new} = dF^T f + dG^T g
-$
-if `u_old` is zero. The code uses a slightly different formulation for the right hand side `rhs = -M @ us + dF.T @ Fs + dG.T @ Gs` which is equivalent to `rhs = dF.T @ f + dG.T @ g` when `us` is the solution of the previous iteration.
+The right-hand side of the update is the negative gradient of the loss function. Since our problem is linear, the solver converges to the exact solution in a single step (if starting from $u_{old}=0$).
 
 ```{code-cell} ipython3
 ---
